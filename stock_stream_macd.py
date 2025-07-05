@@ -34,8 +34,11 @@ def check_python_version():
 
 def install_and_import(package):
     """Install and import a package if not already installed"""
+    # Special handling for alpaca-py package
+    import_name = "alpaca" if package == "alpaca-py" else package
+    
     try:
-        importlib.import_module(package)
+        importlib.import_module(import_name)
         print(f"✓ {package} is already installed")
     except ImportError:
         print(f"Installing {package}...")
@@ -46,7 +49,7 @@ def install_and_import(package):
             print(f"Error installing {package}: {e}")
             sys.exit(1)
     finally:
-        return importlib.import_module(package)
+        return importlib.import_module(import_name)
 
 def setup_environment():
     """Setup the environment and install required packages"""
@@ -54,7 +57,7 @@ def setup_environment():
     check_python_version()
     
     # Install required packages
-    packages = ["alpaca_trade_api", "pandas", "numpy"]
+    packages = ["alpaca-py", "pandas", "numpy"]
     for pkg in packages:
         install_and_import(pkg)
     
@@ -67,7 +70,10 @@ setup_environment()
 import time
 import pandas as pd
 import numpy as np
-from alpaca_trade_api.rest import REST, TimeFrame
+from alpaca.trading.client import TradingClient
+from alpaca.data.historical import StockHistoricalDataClient
+from alpaca.data.requests import StockBarsRequest
+from alpaca.data.timeframe import TimeFrame
 import argparse
 
 class StockTrader:
@@ -84,7 +90,8 @@ class StockTrader:
             sys.exit(1)
         
         try:
-            self.api = REST(self.api_key, self.secret_key, self.base_url)
+            self.trading_client = TradingClient(self.api_key, self.secret_key, paper=True)
+            self.data_client = StockHistoricalDataClient(self.api_key, self.secret_key)
             print("✓ Connected to Alpaca API successfully")
         except Exception as e:
             print(f"Error connecting to Alpaca API: {e}")
@@ -113,13 +120,22 @@ class StockTrader:
                     end = pd.Timestamp.utcnow()
                     start = end - pd.Timedelta(minutes=lookback_minutes)
                     
-                    bars = self.api.get_bars(symbol, TimeFrame.Minute, start.isoformat(), end.isoformat()).df
+                    request_params = StockBarsRequest(
+                        symbol_or_symbols=symbol,
+                        timeframe=TimeFrame.Minute,
+                        start=start,
+                        end=end
+                    )
+                    bars = self.data_client.get_stock_bars(request_params)
                     
-                    if bars.empty:
+                    if bars.df.empty:
                         print(f"{pd.Timestamp.now().strftime('%Y-%m-%d %H:%M:%S')} | No data for {symbol}")
                     else:
-                        macd_data = self.get_macd(bars)
-                        current_price = bars['close'].iloc[-1]
+                        bars_df = bars.df
+                        if symbol in bars_df.index.get_level_values(0):
+                            bars_df = bars_df.loc[symbol]
+                        macd_data = self.get_macd(bars_df)
+                        current_price = bars_df['close'].iloc[-1]
                         macd_value = macd_data['MACD'].iloc[-1]
                         signal_value = macd_data['Signal'].iloc[-1]
                         histogram = macd_data['MACD_Histogram'].iloc[-1]
@@ -152,24 +168,26 @@ class StockTrader:
     def buy_stock(self, symbol, qty, limit_price=None):
         """Buy stock with limit or market order"""
         try:
+            from alpaca.trading.requests import MarketOrderRequest, LimitOrderRequest
+            
             if limit_price:
-                order = self.api.submit_order(
+                order_data = LimitOrderRequest(
                     symbol=symbol,
                     qty=qty,
                     side='buy',
-                    type='limit',
                     time_in_force='gtc',
                     limit_price=limit_price
                 )
+                order = self.trading_client.submit_order(order_data)
                 print(f"✓ Limit buy order submitted for {qty} shares of {symbol} at ${limit_price}")
             else:
-                order = self.api.submit_order(
+                order_data = MarketOrderRequest(
                     symbol=symbol,
                     qty=qty,
                     side='buy',
-                    type='market',
                     time_in_force='day'
                 )
+                order = self.trading_client.submit_order(order_data)
                 print(f"✓ Market buy order submitted for {qty} shares of {symbol}")
             
             return order
@@ -180,24 +198,26 @@ class StockTrader:
     def sell_stock(self, symbol, qty, limit_price=None):
         """Sell stock with limit or market order"""
         try:
+            from alpaca.trading.requests import MarketOrderRequest, LimitOrderRequest
+            
             if limit_price:
-                order = self.api.submit_order(
+                order_data = LimitOrderRequest(
                     symbol=symbol,
                     qty=qty,
                     side='sell',
-                    type='limit',
                     time_in_force='gtc',
                     limit_price=limit_price
                 )
+                order = self.trading_client.submit_order(order_data)
                 print(f"✓ Limit sell order submitted for {qty} shares of {symbol} at ${limit_price}")
             else:
-                order = self.api.submit_order(
+                order_data = MarketOrderRequest(
                     symbol=symbol,
                     qty=qty,
                     side='sell',
-                    type='market',
                     time_in_force='day'
                 )
+                order = self.trading_client.submit_order(order_data)
                 print(f"✓ Market sell order submitted for {qty} shares of {symbol}")
             
             return order
@@ -208,7 +228,7 @@ class StockTrader:
     def get_account_info(self):
         """Get account information"""
         try:
-            account = self.api.get_account()
+            account = self.trading_client.get_account()
             print(f"Account Status: {account.status}")
             print(f"Buying Power: ${float(account.buying_power):.2f}")
             print(f"Cash: ${float(account.cash):.2f}")
