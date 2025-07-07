@@ -8,6 +8,8 @@ import sys
 import subprocess
 import importlib
 import os
+import smbus
+import time
 
 def load_env_file():
     """Load environment variables from .env file"""
@@ -61,6 +63,9 @@ def setup_environment():
     for pkg in packages:
         install_and_import(pkg)
     
+    # Check for Raspberry Pi specific libraries
+    check_raspberry_pi_libraries()
+    
     print("Environment setup complete!")
 
 # Setup environment first
@@ -75,6 +80,45 @@ from alpaca.data.historical import StockHistoricalDataClient
 from alpaca.data.requests import StockBarsRequest
 from alpaca.data.timeframe import TimeFrame
 import argparse
+
+# Global flags for Raspberry Pi functionality
+RASPBERRY_PI_AVAILABLE = False
+SMBUS_AVAILABLE = False
+GPIO_AVAILABLE = False
+
+def check_raspberry_pi_libraries():
+    """Check for Raspberry Pi specific libraries and set global flags"""
+    global RASPBERRY_PI_AVAILABLE, SMBUS_AVAILABLE, GPIO_AVAILABLE
+    
+    # Check if we're on a Raspberry Pi
+    try:
+        import platform
+        RASPBERRY_PI_AVAILABLE = platform.machine().startswith('arm')
+    except:
+        RASPBERRY_PI_AVAILABLE = False
+    
+    # Check for smbus
+    try:
+        import smbus
+        SMBUS_AVAILABLE = True
+        print("✓ smbus (I2C library) is available")
+    except ImportError:
+        SMBUS_AVAILABLE = False
+        print("⚠ smbus not available - I2C functionality will be disabled")
+    
+    # Check for RPi.GPIO
+    try:
+        import RPi.GPIO as GPIO
+        GPIO_AVAILABLE = True
+        print("✓ RPi.GPIO is available")
+    except ImportError:
+        GPIO_AVAILABLE = False
+        print("⚠ RPi.GPIO not available - GPIO functionality will be disabled")
+    
+    if RASPBERRY_PI_AVAILABLE:
+        print("✓ Running on Raspberry Pi")
+    else:
+        print("⚠ Not running on Raspberry Pi - hardware features will be simulated")
 
 class StockTrader:
     def __init__(self, api_key=None, secret_key=None, base_url='https://paper-api.alpaca.markets'):
@@ -106,6 +150,36 @@ class StockTrader:
         df['Signal'] = df['MACD'].ewm(span=signal, adjust=False).mean()
         df['MACD_Histogram'] = df['MACD'] - df['Signal']
         return df[['MACD', 'Signal', 'MACD_Histogram']]
+
+    def write_to_dac(self, address, value):
+        """Write to DAC - handles cases where smbus is not available"""
+        DAC1_ADDR = 0x60  # A0 pin to GND
+        DAC2_ADDR = 0x61  # A0 pin to VCC
+        
+        # Check if smbus is available using global flag
+        if SMBUS_AVAILABLE:
+            try:
+                import smbus
+                bus = smbus.SMBus(1)
+                
+                if not 0 <= value <= 4095:
+                    raise ValueError("Value must be between 0 and 4095")
+
+                upper = (value >> 4) & 0xFF
+                lower = (value << 4) & 0xFF
+
+                try:
+                    bus.write_i2c_block_data(address, 0x40, [upper, lower])  # 0x40 = write DAC register
+                    #print(f"Wrote value {value} to DAC at address 0x{address:X}")
+                except Exception as e:
+                    print(f"Error writing to DAC at 0x{address:X}: {e}")
+                    
+            except Exception as e:
+                print(f"Error in DAC write: {e}")
+        else:
+            # smbus not available (not on Raspberry Pi)
+            print(f"⚠ DAC write skipped - smbus not available (value would be: {value:.2f})")
+
 
     def stream_ticker(self, symbol, interval_seconds=60, lookback_minutes=60):
         """Stream real-time ticker data with MACD calculation"""
@@ -140,6 +214,11 @@ class StockTrader:
                         signal_value = macd_data['Signal'].iloc[-1]
                         histogram = macd_data['MACD_Histogram'].iloc[-1]
                         
+                        #code to write to DAC goes here. only fcn call. 
+                        self.write_to_dac(0x60, signal_value)
+                        self.write_to_dac(0x61, macd_value)
+
+
                         # Determine MACD signal
                         if macd_value > signal_value and histogram > 0:
                             signal = "BULLISH"

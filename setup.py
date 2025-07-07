@@ -10,7 +10,7 @@ import os
 def install_requirements():
     """Install required packages"""
     requirements = [
-        "alpaca_trade_api",
+        "alpaca-py",
         "pandas", 
         "numpy"
     ]
@@ -23,6 +23,29 @@ def install_requirements():
         except subprocess.CalledProcessError as e:
             print(f"✗ Failed to install {package}: {e}")
             return False
+    
+    # Handle Raspberry Pi specific libraries
+    print("\nChecking for Raspberry Pi specific libraries...")
+    
+    # Try to install RPi.GPIO if on Raspberry Pi
+    try:
+        import platform
+        if platform.machine().startswith('arm'):
+            print("Raspberry Pi detected, attempting to install RPi.GPIO...")
+            try:
+                subprocess.check_call([sys.executable, "-m", "pip", "install", "RPi.GPIO"])
+                print("✓ RPi.GPIO installed successfully")
+            except subprocess.CalledProcessError:
+                print("⚠ RPi.GPIO installation failed - this is normal on non-Raspberry Pi systems")
+        else:
+            print("Not on Raspberry Pi - RPi.GPIO not needed")
+    except Exception as e:
+        print(f"⚠ Could not determine platform: {e}")
+    
+    # Note about smbus
+    print("Note: smbus is typically pre-installed on Raspberry Pi systems")
+    print("If you need I2C functionality, ensure I2C is enabled in raspi-config")
+    
     return True
 
 def create_env_file():

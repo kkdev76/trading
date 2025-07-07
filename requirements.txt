@@ -1,3 +1,6 @@
 alpaca-py>=0.13.0
 pandas>=1.5.0
-numpy>=1.21.0 
+numpy>=1.21.0
+# Raspberry Pi specific libraries (optional)
+# RPi.GPIO>=0.7.0  # Uncomment if using on Raspberry Pi
+# smbus2>=0.4.0    # Alternative to smbus if needed 

@@ -1,145 +1,148 @@
-# Real-time Stock Ticker with MACD and Trading
+# Stock Stream MACD Trading Tool
 
-A Python tool that streams real-time stock data, calculates MACD indicators, and allows trading through the Alpaca API.
+A real-time stock ticker with MACD (Moving Average Convergence Divergence) calculation and trading functions using the Alpaca API. Includes Raspberry Pi support for hardware integration.
 
 ## Features
 
-- 🔄 Real-time stock data streaming
-- 📊 MACD (Moving Average Convergence Divergence) calculation
-- 💹 Buy/sell orders with limit or market prices
-- 🔧 Auto-installation of required dependencies
-- 🛡️ Paper trading support (safe for testing)
-- 📱 Command-line interface
+- Real-time stock data streaming
+- MACD indicator calculation
+- Trading functionality (buy/sell orders)
+- Raspberry Pi hardware integration (I2C DAC output)
+- Cross-platform compatibility
 
-## Prerequisites
+## Requirements
 
+### Core Requirements
 - Python 3.7 or higher
-- Alpaca API account (free paper trading available)
+- Alpaca API credentials
+- Internet connection
 
-## Quick Start
+### Raspberry Pi Requirements (Optional)
+- Raspberry Pi (any model)
+- I2C enabled
+- DAC module (e.g., MCP4725) for analog output
+- RPi.GPIO library
+- smbus library (usually pre-installed)
 
-### 1. Setup
+## Installation
 
+### Quick Setup
 ```bash
-# Run the setup script
 python setup.py
 ```
 
-### 2. Get Alpaca API Keys
-
-1. Go to [Alpaca Markets](https://app.alpaca.markets/paper/dashboard/overview)
-2. Create a free account
-3. Get your API key and secret key from the dashboard
-
-### 3. Configure API Keys
-
-Edit the `.env` file created by the setup script:
-
+### Manual Setup
+1. Install required packages:
 ```bash
+pip install -r requirements.txt
+```
+
+2. For Raspberry Pi users, install additional libraries:
+```bash
+pip install RPi.GPIO
+```
+
+3. Create a `.env` file with your Alpaca API credentials:
+```
 ALPACA_API_KEY=your_api_key_here
 ALPACA_SECRET_KEY=your_secret_key_here
 ```
 
-Or set environment variables:
+## Raspberry Pi Setup
 
+### Enable I2C
+1. Run `sudo raspi-config`
+2. Navigate to "Interface Options" → "I2C"
+3. Enable I2C
+4. Reboot: `sudo reboot`
+
+### Install Raspberry Pi Libraries
 ```bash
-export ALPACA_API_KEY="your_api_key_here"
-export ALPACA_SECRET_KEY="your_secret_key_here"
+sudo apt-get update
+sudo apt-get install python3-smbus python3-dev
+pip install RPi.GPIO
 ```
+
+### Hardware Connection
+Connect your DAC module to the Raspberry Pi:
+- VCC to 3.3V
+- GND to Ground
+- SDA to GPIO2 (Pin 3)
+- SCL to GPIO3 (Pin 5)
 
 ## Usage
 
-### Stream Real-time Data with MACD
-
+### Basic Streaming
 ```bash
-# Stream AAPL data every 60 seconds
-python stock_stream_macd.py --symbol AAPL --interval 60
-
-# Stream TSLA data every 30 seconds with 30-minute lookback
-python stock_stream_macd.py --symbol TSLA --interval 30 --lookback 30
+python stock_stream_macd.py --symbol AAPL
 ```
 
-### Buy/Sell Orders
-
+### With Custom Parameters
 ```bash
-# Buy 10 shares of AAPL at market price
-python stock_stream_macd.py --action buy --symbol AAPL --qty 10
-
-# Buy 5 shares of AAPL at $170 limit price
-python stock_stream_macd.py --action buy --symbol AAPL --qty 5 --price 170
-
-# Sell 3 shares of TSLA at $250 limit price
-python stock_stream_macd.py --action sell --symbol TSLA --qty 3 --price 250
+python stock_stream_macd.py --symbol TSLA --interval 30 --lookback 120
 ```
 
-### Check Account Information
-
+### Trading Functions
 ```bash
+# Check account info
 python stock_stream_macd.py --action account
+
+# Buy stock
+python stock_stream_macd.py --action buy --symbol AAPL --qty 1
+
+# Sell stock
+python stock_stream_macd.py --action sell --symbol AAPL --qty 1
 ```
 
 ## Command Line Options
 
-| Option | Description | Default |
-|--------|-------------|---------|
-| `--symbol` | Stock symbol to trade/stream | AAPL |
-| `--interval` | Streaming interval in seconds | 60 |
-| `--lookback` | Lookback period in minutes | 60 |
-| `--action` | Action: stream, buy, sell, account | stream |
-| `--qty` | Quantity for buy/sell orders | Required for buy/sell |
-| `--price` | Limit price for buy/sell orders | Market order if not specified |
-| `--api-key` | Alpaca API key | From environment |
-| `--secret-key` | Alpaca secret key | From environment |
+- `--symbol`: Stock symbol to track (default: AAPL)
+- `--interval`: Update interval in seconds (default: 60)
+- `--lookback`: Historical data lookback in minutes (default: 60)
+- `--action`: Action to perform (stream/buy/sell/account)
+- `--qty`: Quantity for buy/sell orders
+- `--price`: Limit price for orders
+- `--api-key`: Alpaca API key
+- `--secret-key`: Alpaca secret key
 
-## MACD Indicator
+## Raspberry Pi Features
 
-The tool calculates and displays:
-- **MACD Line**: Difference between 12-period and 26-period EMAs
-- **Signal Line**: 9-period EMA of MACD line
-- **Histogram**: MACD line minus Signal line
-- **Signal**: BULLISH, BEARISH, or NEUTRAL based on MACD position
+### DAC Output
+The tool can output MACD and signal values to a DAC module:
+- DAC1 (address 0x60): Signal line value
+- DAC2 (address 0x61): MACD line value
 
-## Example Output
-
-```
-2024-01-15 14:30:00 | AAPL | Price: $185.50 | MACD: 0.0234 | Signal: 0.0189 | Histogram: 0.0045 | BULLISH
-2024-01-15 14:31:00 | AAPL | Price: $185.75 | MACD: 0.0241 | Signal: 0.0192 | Histogram: 0.0049 | BULLISH
-```
-
-## Safety Notes
-
-- This tool uses Alpaca's paper trading by default (safe for testing)
-- Always test with small amounts before live trading
-- MACD is a lagging indicator - use with other analysis
-- Past performance doesn't guarantee future results
+### Cross-Platform Compatibility
+- On Raspberry Pi: Full hardware functionality
+- On other systems: Hardware features are simulated with console output
 
 ## Troubleshooting
 
-### Python Interpreter Not Found
-Make sure Python 3.7+ is installed and in your PATH:
-```bash
-python --version
-# or
-python3 --version
-```
+### Common Issues
 
-### Import Errors
-Run the setup script to install dependencies:
-```bash
-python setup.py
-```
+1. **Import Error for smbus/RPi.GPIO**
+   - This is normal on non-Raspberry Pi systems
+   - Hardware features will be disabled automatically
 
-### API Connection Issues
-- Verify your API keys are correct
-- Check your internet connection
-- Ensure you're using the correct Alpaca environment (paper/live)
+2. **I2C Connection Issues**
+   - Ensure I2C is enabled in raspi-config
+   - Check wiring connections
+   - Verify DAC module address
+
+3. **Alpaca API Errors**
+   - Verify API credentials in .env file
+   - Check internet connection
+   - Ensure account has sufficient funds
+
+### Getting Help
+- Check the console output for detailed error messages
+- Verify all dependencies are installed
+- Ensure proper API credentials
 
 ## License
 
-This project is for educational purposes. Use at your own risk.
+This project is open source. Feel free to modify and distribute.
 
-## Support
+## Contributing
 
-For issues with:
-- Alpaca API: [Alpaca Support](https://alpaca.markets/support/)
-- This tool: Check the troubleshooting section above 
+Contributions are welcome! Please feel free to submit pull requests or open issues for bugs and feature requests. 
