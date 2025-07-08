@@ -48,6 +48,16 @@ ALPACA_API_KEY=your_api_key_here
 ALPACA_SECRET_KEY=your_secret_key_here
 ```
 
+### Raspberry Pi Installation
+For Raspberry Pi systems, use the optimized installation script:
+```bash
+# Make the script executable
+chmod +x install_raspberry_pi.sh
+
+# Run the installation script
+./install_raspberry_pi.sh
+```
+
 ### Lightweight Alternative (for Raspberry Pi)
 If pandas installation fails on Raspberry Pi, use the lightweight version:
 ```bash
@@ -56,6 +66,20 @@ pip install --user requests
 
 # Run lightweight version
 python lightweight_trading.py --symbol AAPL
+```
+
+### Manual Installation for Raspberry Pi
+If the automated installation fails, try these steps:
+```bash
+# 1. Install system packages (pre-compiled)
+sudo apt-get install python3-pandas python3-numpy python3-requests
+
+# 2. Install alpaca-py
+pip install --user alpaca-py
+
+# 3. Install Raspberry Pi libraries
+sudo apt-get install python3-smbus python3-dev
+pip install --user RPi.GPIO
 ```
 
 ## Raspberry Pi Setup

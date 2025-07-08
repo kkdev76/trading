@@ -12,8 +12,8 @@ def install_requirements():
     # Core requirements with alternatives
     requirements = [
         ("alpaca-py", None),  # No alternative for alpaca-py
-        ("pandas", "pandas-lite"),  # Lightweight alternative
-        ("numpy", "numpy-lite")  # Lightweight alternative
+        ("numpy", None),  # Try numpy first as pandas depends on it
+        ("pandas", None)  # No lightweight alternative for pandas
     ]
     
     print("Installing required packages...")
@@ -33,41 +33,56 @@ def install_requirements():
             try:
                 cmd = method + [package]
                 print(f"Trying to install {package}...")
-                subprocess.check_call(cmd, timeout=300)  # 5 minute timeout
-                print(f"✓ {package} installed successfully using {' '.join(method)}")
-                installed = True
-                break
+                
+                # Special handling for pandas to avoid compilation
+                if package == "pandas":
+                    # Try to install pre-compiled wheel first
+                    try:
+                        wheel_cmd = method + ["--only-binary=all", package]
+                        subprocess.check_call(wheel_cmd, timeout=600)  # 10 minute timeout
+                        print(f"✓ {package} installed successfully using pre-compiled wheel")
+                        installed = True
+                        break
+                    except subprocess.CalledProcessError:
+                        print(f"⚠ Pre-compiled wheel not available for {package}, trying system package...")
+                        # Try system package installation
+                        try:
+                            if package == "pandas":
+                                subprocess.check_call(["sudo", "apt-get", "install", "-y", "python3-pandas"])
+                                print(f"✓ {package} installed via system package manager")
+                                installed = True
+                                break
+                        except subprocess.CalledProcessError:
+                            print(f"⚠ System package installation failed for {package}")
+                            continue
+                else:
+                    # For other packages, try normal installation
+                    subprocess.check_call(cmd, timeout=300)  # 5 minute timeout
+                    print(f"✓ {package} installed successfully using {' '.join(method)}")
+                    installed = True
+                    break
+                    
             except subprocess.CalledProcessError as e:
                 print(f"⚠ Failed to install {package} using {' '.join(method)}: {e}")
                 continue
             except subprocess.TimeoutExpired:
-                print(f"⚠ Installation of {package} timed out (5 minutes)")
+                print(f"⚠ Installation of {package} timed out")
                 continue
         
-        # If main package failed and alternative exists, try alternative
-        if not installed and alternative:
-            print(f"Trying alternative package: {alternative}")
-            for method in install_methods:
-                try:
-                    cmd = method + [alternative]
-                    subprocess.check_call(cmd, timeout=300)
-                    print(f"✓ {alternative} installed successfully as alternative to {package}")
-                    installed = True
-                    break
-                except subprocess.CalledProcessError as e:
-                    print(f"⚠ Failed to install {alternative}: {e}")
-                    continue
-                except subprocess.TimeoutExpired:
-                    print(f"⚠ Installation of {alternative} timed out")
-                    continue
-        
         if not installed:
-            print(f"✗ Failed to install {package} and its alternatives")
-            print("\nManual installation options:")
-            print("1. Install system packages: sudo apt-get install python3-pandas python3-numpy")
-            print("2. Use virtual environment: python3 -m venv trading_env && source trading_env/bin/activate")
-            print("3. Install with timeout: pip install --user --timeout 600 pandas numpy")
-            print("4. Use lightweight alternatives: pip install --user pandas-lite numpy-lite")
+            print(f"✗ Failed to install {package}")
+            if package == "pandas":
+                print("\nPandas installation failed. Try these solutions:")
+                print("1. Use the lightweight alternative: python lightweight_trading.py")
+                print("2. Install system pandas: sudo apt-get install python3-pandas")
+                print("3. Use pre-compiled wheel: pip install --only-binary=all --user pandas")
+                print("4. Increase swap space: sudo dphys-swapfile swapoff && sudo dphys-swapfile set 2048 && sudo dphys-swapfile swapon")
+                print("5. Use virtual environment with more memory")
+            else:
+                print("\nManual installation options:")
+                print("1. Install system packages: sudo apt-get install python3-pandas python3-numpy")
+                print("2. Use virtual environment: python3 -m venv trading_env && source trading_env/bin/activate")
+                print("3. Install with timeout: pip install --user --timeout 600 pandas numpy")
             return False
     
     return True
