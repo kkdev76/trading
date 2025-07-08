@@ -44,14 +44,35 @@ def install_and_import(package):
         print(f"✓ {package} is already installed")
     except ImportError:
         print(f"Installing {package}...")
-        try:
-            subprocess.check_call([sys.executable, "-m", "pip", "install", package])
-            print(f"✓ {package} installed successfully")
-        except subprocess.CalledProcessError as e:
-            print(f"Error installing {package}: {e}")
+        
+        # Try different installation methods for externally-managed environments
+        install_methods = [
+            [sys.executable, "-m", "pip", "install", "--user"],
+            [sys.executable, "-m", "pip", "install", "--break-system-packages"],
+            [sys.executable, "-m", "pip", "install"]
+        ]
+        
+        installed = False
+        for method in install_methods:
+            try:
+                cmd = method + [package]
+                subprocess.check_call(cmd)
+                print(f"✓ {package} installed successfully using {' '.join(method)}")
+                installed = True
+                break
+            except subprocess.CalledProcessError as e:
+                print(f"⚠ Failed to install {package} using {' '.join(method)}: {e}")
+                continue
+        
+        if not installed:
+            print(f"Error installing {package} with all methods")
+            print("Please try one of these manual solutions:")
+            print("1. Create a virtual environment: python3 -m venv trading_env && source trading_env/bin/activate")
+            print("2. Use --user flag: pip install --user alpaca-py pandas numpy")
+            print("3. Use --break-system-packages: pip install --break-system-packages alpaca-py pandas numpy")
             sys.exit(1)
-    finally:
-        return importlib.import_module(import_name)
+    
+    return importlib.import_module(import_name)
 
 def setup_environment():
     """Setup the environment and install required packages"""
