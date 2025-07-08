@@ -8,11 +8,12 @@ import sys
 import os
 
 def install_requirements():
-    """Install required packages"""
+    """Install required packages with fallback alternatives"""
+    # Core requirements with alternatives
     requirements = [
-        "alpaca-py",
-        "pandas", 
-        "numpy"
+        ("alpaca-py", None),  # No alternative for alpaca-py
+        ("pandas", "pandas-lite"),  # Lightweight alternative
+        ("numpy", "numpy-lite")  # Lightweight alternative
     ]
     
     print("Installing required packages...")
@@ -24,25 +25,49 @@ def install_requirements():
         [sys.executable, "-m", "pip", "install"]
     ]
     
-    for package in requirements:
+    for package, alternative in requirements:
         installed = False
+        
+        # Try main package first
         for method in install_methods:
             try:
                 cmd = method + [package]
-                subprocess.check_call(cmd)
+                print(f"Trying to install {package}...")
+                subprocess.check_call(cmd, timeout=300)  # 5 minute timeout
                 print(f"✓ {package} installed successfully using {' '.join(method)}")
                 installed = True
                 break
             except subprocess.CalledProcessError as e:
                 print(f"⚠ Failed to install {package} using {' '.join(method)}: {e}")
                 continue
+            except subprocess.TimeoutExpired:
+                print(f"⚠ Installation of {package} timed out (5 minutes)")
+                continue
+        
+        # If main package failed and alternative exists, try alternative
+        if not installed and alternative:
+            print(f"Trying alternative package: {alternative}")
+            for method in install_methods:
+                try:
+                    cmd = method + [alternative]
+                    subprocess.check_call(cmd, timeout=300)
+                    print(f"✓ {alternative} installed successfully as alternative to {package}")
+                    installed = True
+                    break
+                except subprocess.CalledProcessError as e:
+                    print(f"⚠ Failed to install {alternative}: {e}")
+                    continue
+                except subprocess.TimeoutExpired:
+                    print(f"⚠ Installation of {alternative} timed out")
+                    continue
         
         if not installed:
-            print(f"✗ Failed to install {package} with all methods")
-            print("Please try one of these manual solutions:")
-            print("1. Create a virtual environment: python3 -m venv trading_env && source trading_env/bin/activate")
-            print("2. Use --user flag: pip install --user alpaca-py pandas numpy")
-            print("3. Use --break-system-packages: pip install --break-system-packages alpaca-py pandas numpy")
+            print(f"✗ Failed to install {package} and its alternatives")
+            print("\nManual installation options:")
+            print("1. Install system packages: sudo apt-get install python3-pandas python3-numpy")
+            print("2. Use virtual environment: python3 -m venv trading_env && source trading_env/bin/activate")
+            print("3. Install with timeout: pip install --user --timeout 600 pandas numpy")
+            print("4. Use lightweight alternatives: pip install --user pandas-lite numpy-lite")
             return False
     
     return True

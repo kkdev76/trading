@@ -35,13 +35,21 @@ def check_python_version():
         sys.exit(1)
 
 def install_and_import(package):
-    """Install and import a package if not already installed"""
+    """Install and import a package if not already installed with alternatives"""
     # Special handling for alpaca-py package
     import_name = "alpaca" if package == "alpaca-py" else package
     
+    # Package alternatives for Raspberry Pi compatibility
+    alternatives = {
+        "pandas": ["pandas-lite", "pandas"],
+        "numpy": ["numpy-lite", "numpy"]
+    }
+    
+    # Try to import the main package first
     try:
-        importlib.import_module(import_name)
+        module = importlib.import_module(import_name)
         print(f"✓ {package} is already installed")
+        return module
     except ImportError:
         print(f"Installing {package}...")
         
@@ -52,27 +60,49 @@ def install_and_import(package):
             [sys.executable, "-m", "pip", "install"]
         ]
         
+        # Get list of packages to try (main package + alternatives)
+        packages_to_try = [package]
+        if package in alternatives:
+            packages_to_try.extend(alternatives[package])
+        
         installed = False
-        for method in install_methods:
-            try:
-                cmd = method + [package]
-                subprocess.check_call(cmd)
-                print(f"✓ {package} installed successfully using {' '.join(method)}")
-                installed = True
-                break
-            except subprocess.CalledProcessError as e:
-                print(f"⚠ Failed to install {package} using {' '.join(method)}: {e}")
-                continue
+        for pkg in packages_to_try:
+            for method in install_methods:
+                try:
+                    cmd = method + [pkg]
+                    print(f"Trying to install {pkg}...")
+                    subprocess.check_call(cmd, timeout=300)  # 5 minute timeout
+                    print(f"✓ {pkg} installed successfully using {' '.join(method)}")
+                    installed = True
+                    break
+                except subprocess.CalledProcessError as e:
+                    print(f"⚠ Failed to install {pkg} using {' '.join(method)}: {e}")
+                    continue
+                except subprocess.TimeoutExpired:
+                    print(f"⚠ Installation of {pkg} timed out (5 minutes)")
+                    continue
+            
+            if installed:
+                # Try to import the installed package
+                try:
+                    if pkg == "pandas-lite":
+                        return importlib.import_module("pandas")
+                    elif pkg == "numpy-lite":
+                        return importlib.import_module("numpy")
+                    else:
+                        return importlib.import_module(import_name)
+                except ImportError:
+                    print(f"⚠ Package {pkg} installed but import failed")
+                    continue
         
         if not installed:
-            print(f"Error installing {package} with all methods")
-            print("Please try one of these manual solutions:")
-            print("1. Create a virtual environment: python3 -m venv trading_env && source trading_env/bin/activate")
-            print("2. Use --user flag: pip install --user alpaca-py pandas numpy")
-            print("3. Use --break-system-packages: pip install --break-system-packages alpaca-py pandas numpy")
+            print(f"Error installing {package} and alternatives")
+            print("\nManual installation options:")
+            print("1. Install system packages: sudo apt-get install python3-pandas python3-numpy")
+            print("2. Use virtual environment: python3 -m venv trading_env && source trading_env/bin/activate")
+            print("3. Install with timeout: pip install --user --timeout 600 pandas numpy")
+            print("4. Use lightweight alternatives: pip install --user pandas-lite numpy-lite")
             sys.exit(1)
-    
-    return importlib.import_module(import_name)
 
 def setup_environment():
     """Setup the environment and install required packages"""

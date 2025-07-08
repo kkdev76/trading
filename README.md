@@ -48,6 +48,16 @@ ALPACA_API_KEY=your_api_key_here
 ALPACA_SECRET_KEY=your_secret_key_here
 ```
 
+### Lightweight Alternative (for Raspberry Pi)
+If pandas installation fails on Raspberry Pi, use the lightweight version:
+```bash
+# Install minimal dependencies
+pip install --user requests
+
+# Run lightweight version
+python lightweight_trading.py --symbol AAPL
+```
+
 ## Raspberry Pi Setup
 
 ### Enable I2C
@@ -80,6 +90,12 @@ python stock_stream_macd.py --symbol AAPL
 ### With Custom Parameters
 ```bash
 python stock_stream_macd.py --symbol TSLA --interval 30 --lookback 120
+```
+
+### Lightweight Version (for Raspberry Pi)
+If the main script fails due to pandas installation issues:
+```bash
+python lightweight_trading.py --symbol AAPL
 ```
 
 ### Trading Functions
