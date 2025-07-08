@@ -104,34 +104,6 @@ def install_and_import(package):
             print("4. Use lightweight alternatives: pip install --user pandas-lite numpy-lite")
             sys.exit(1)
 
-def setup_environment():
-    """Setup the environment and install required packages"""
-    print("Setting up environment...")
-    check_python_version()
-    
-    # Install required packages
-    packages = ["alpaca-py", "pandas", "numpy"]
-    for pkg in packages:
-        install_and_import(pkg)
-    
-    # Check for Raspberry Pi specific libraries
-    check_raspberry_pi_libraries()
-    
-    print("Environment setup complete!")
-
-# Setup environment first
-setup_environment()
-
-# Now import the packages
-import time
-import pandas as pd
-import numpy as np
-from alpaca.trading.client import TradingClient
-from alpaca.data.historical import StockHistoricalDataClient
-from alpaca.data.requests import StockBarsRequest
-from alpaca.data.timeframe import TimeFrame
-import argparse
-
 # Global flags for Raspberry Pi functionality
 RASPBERRY_PI_AVAILABLE = False
 SMBUS_AVAILABLE = False
@@ -170,6 +142,39 @@ def check_raspberry_pi_libraries():
         print("✓ Running on Raspberry Pi")
     else:
         print("⚠ Not running on Raspberry Pi - hardware features will be simulated")
+
+def setup_environment():
+    """Setup the environment and install required packages"""
+    print("Setting up environment...")
+    check_python_version()
+    
+    # Install required packages
+    packages = ["alpaca-py", "pandas", "numpy"]
+    for pkg in packages:
+        install_and_import(pkg)
+    
+    # Check for Raspberry Pi specific libraries
+    check_raspberry_pi_libraries()
+    
+    print("Environment setup complete!")
+
+# Setup environment first
+setup_environment()
+
+# Now import the packages
+import time
+import pandas as pd
+import numpy as np
+from alpaca.trading.client import TradingClient
+from alpaca.data.historical import StockHistoricalDataClient
+from alpaca.data.requests import StockBarsRequest
+from alpaca.data.timeframe import TimeFrame
+import argparse
+
+# Global flags for Raspberry Pi functionality
+RASPBERRY_PI_AVAILABLE = False
+SMBUS_AVAILABLE = False
+GPIO_AVAILABLE = False
 
 class StockTrader:
     def __init__(self, api_key=None, secret_key=None, base_url='https://paper-api.alpaca.markets'):
